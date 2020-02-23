@@ -22,10 +22,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #ifndef ShiftPWM_H
 #define ShiftPWM_H
 
+#include <SPI.h>
 #include "pins_arduino_compile_time.h" // My own version of pins arduino, which does not define the arrays in program memory
 #include <Arduino.h>
 #include "CShiftPWM.h"
-
+#include "processor_specific.h"
 
 // These should be defined in the file where ShiftPWM.h is included.
 extern const int ShiftPWM_latchPin;
@@ -107,8 +108,13 @@ static inline void ShiftPWM_handleInterrupt(void){
 	// The compiler does not recognize the pins/ports as constant and sbi and cbi instructions cannot be used.
 
 
+	#if defined(UseMegaAVR)
+	PORT_t * latchPort = digital_pin_to_port_PGM_ct[ShiftPWM_latchPin];
+	uint8_t latchBitMask = digital_pin_to_bit_mask[ShiftPWM_latchPin];
+	#else
 	volatile uint8_t * const latchPort = port_to_output_PGM_ct[digital_pin_to_port_PGM_ct[ShiftPWM_latchPin]];
 	const uint8_t latchBit =  digital_pin_to_bit_PGM_ct[ShiftPWM_latchPin];
+	#endif
 
 	#ifdef SHIFTPWM_NOSPI
 	volatile uint8_t * const clockPort = port_to_output_PGM_ct[digital_pin_to_port_PGM_ct[ShiftPWM_clockPin]];
@@ -123,7 +129,11 @@ static inline void ShiftPWM_handleInterrupt(void){
 	unsigned char * ledPtr=&ShiftPWM.m_PWMValues[ShiftPWM.m_amountOfOutputs];
 
 	// Write shift register latch clock low 
+	#if defined(UseMegaAVR)
+	latchPort->OUTCLR = latchBitMask;
+	#else
 	bitClear(*latchPort, latchBit);
+	#endif
 	unsigned char counter = ShiftPWM.m_counter;
 	
 	#ifndef SHIFTPWM_NOSPI
@@ -144,13 +154,13 @@ static inline void ShiftPWM_handleInterrupt(void){
 		add_one_pin_to_byte(sendbyte, counter,  --ledPtr);
 		add_one_pin_to_byte(sendbyte, counter,  --ledPtr);
 
-		while (!(SPSR & _BV(SPIF)));    // wait for last send to finish and retreive answer. Retreive must be done, otherwise the SPI will not work.
+		while (WaitForCompleteSend);    // wait for last send to finish and retreive answer. Retreive must be done, otherwise the SPI will not work.
 		if(ShiftPWM_invertOutputs){	
 			sendbyte = ~sendbyte; // Invert the byte if needed.
 		}
 		SPDR = sendbyte; // Send the byte to the SPI
 	}
-	while (!(SPSR & _BV(SPIF))); // wait for last send to complete.
+	while (WaitForCompleteSend); // wait for last send to complete.
 	#else
 	//Use port manipulation to send out all bits
 	for(unsigned char i = ShiftPWM.m_amountOfRegisters; i>0;--i){   // do one shift register at a time. This unrolls the loop for extra speed
@@ -169,7 +179,11 @@ static inline void ShiftPWM_handleInterrupt(void){
 	#endif
 
 	// Write shift register latch clock high
+	#if defined(UseMegaAVR)
+	latchPort->OUTSET = latchBitMask;
+	#else
 	bitSet(*latchPort, latchBit);
+	#endif
 
 	if(ShiftPWM.m_counter<ShiftPWM.m_maxBrightness){
 		ShiftPWM.m_counter++; // Increase the counter
@@ -188,6 +202,11 @@ static inline void ShiftPWM_handleInterrupt(void){
 #elif defined(SHIFTPWM_USE_TIMER2)
 	//Install the Interrupt Service Routine (ISR) for Timer1 compare and match A.
 	ISR(TIMER2_COMPA_vect) {
+		ShiftPWM_handleInterrupt();
+	}
+#elif defined(UseMegaAVR)
+	//Install the Interrupt Service Routine (ISR) for Timer1 compare and match A.
+	ISR(TCB1_INT_VECT) {
 		ShiftPWM_handleInterrupt();
 	}
 #else

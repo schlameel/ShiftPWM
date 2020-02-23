@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define CShiftPWM_h
 
 #include <Arduino.h>
+#include "processor_specific.h"
 
 class CShiftPWM{
 public:

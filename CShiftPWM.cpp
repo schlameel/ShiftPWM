@@ -24,6 +24,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include "CShiftPWM.h"
 #include <Arduino.h>
 
+#if defined(UseMegaAVR)
+	#include <SPI.h>
+#endif
+
 CShiftPWM::CShiftPWM(int timerInUse, bool noSPI, int latchPin, int dataPin, int clockPin) :  // Constants are set in initializer list
 					m_timer(timerInUse), m_noSPI(noSPI), m_latchPin(latchPin), m_dataPin(dataPin), m_clockPin(clockPin){
 	m_ledFrequency = 0;
@@ -275,32 +279,47 @@ void CShiftPWM::Start(int ledFrequency, unsigned char maxBrightness){
 	digitalWrite(m_dataPin, LOW);
 
 	if(!m_noSPI){ // initialize SPI when used
-		// The least significant bit shoult be sent out by the SPI port first.
-		// equals SPI.setBitOrder(LSBFIRST);
-		SPCR |= _BV(DORD);
 
-		// Here you can set the clock speed of the SPI port. Default is DIV4, which is 4MHz with a 16Mhz system clock.
-		// If you encounter problems due to long wires or capacitive loads, try lowering the SPI clock.
-		// equals SPI.setClockDivider(SPI_CLOCK_DIV4);
+		#if defined(UseMegaAVR)
+			// The least significant bit shoult be sent out by the SPI port first.
+			// equals SPI.setBitOrder(LSBFIRST);
+			SPI.setBitOrder(LSBFIRST);
 
-		SPCR = (SPCR & 0b11111000);
-		SPSR = (SPSR & 0b11111110);
+			// Here you can set the clock speed of the SPI port. Default is DIV4, which is 4MHz with a 16Mhz system clock.
+			// If you encounter problems due to long wires or capacitive loads, try lowering the SPI clock.
+			// equals SPI.setClockDivider(SPI_CLOCK_DIV4);
+			SPI.setClockDivider(SPI_CLOCK_DIV4);
 
-		// Set clock polarity and phase for shift registers (Mode 3)
-		SPCR |= _BV(CPOL);
-		SPCR |= _BV(CPHA);
+			// Set clock polarity and phase for shift registers (Mode 3)
+			SPI.setDataMode(SPI_MODE3);
+		#else
+			// The least significant bit shoult be sent out by the SPI port first.
+			// equals SPI.setBitOrder(LSBFIRST);
+			SPCR |= _BV(DORD);
 
-		// When the SS pin is set as OUTPUT, it can be used as
-		// a general purpose output port (it doesn't influence
-		// SPI operations).
-		pinMode(SS, OUTPUT);
-		digitalWrite(SS, HIGH);
+			// Here you can set the clock speed of the SPI port. Default is DIV4, which is 4MHz with a 16Mhz system clock.
+			// If you encounter problems due to long wires or capacitive loads, try lowering the SPI clock.
+			// equals SPI.setClockDivider(SPI_CLOCK_DIV4);
 
-		// Warning: if the SS pin ever becomes a LOW INPUT then SPI
-		// automatically switches to Slave, so the data direction of
-		// the SS pin MUST be kept as OUTPUT.
-		SPCR |= _BV(MSTR);
-		SPCR |= _BV(SPE);
+			SPCR = (SPCR & 0b11111000);
+			SPSR = (SPSR & 0b11111110);
+
+			// Set clock polarity and phase for shift registers (Mode 3)
+			SPCR |= _BV(CPOL);
+			SPCR |= _BV(CPHA);
+
+			// When the SS pin is set as OUTPUT, it can be used as
+			// a general purpose output port (it doesn't influence
+			// SPI operations).
+			pinMode(SS, OUTPUT);
+			digitalWrite(SS, HIGH);
+
+			// Warning: if the SS pin ever becomes a LOW INPUT then SPI
+			// automatically switches to Slave, so the data direction of
+			// the SS pin MUST be kept as OUTPUT.
+			SPCR |= _BV(MSTR);
+			SPCR |= _BV(SPE);
+		#endif
 	}
 
 	if(LoadNotTooHigh() ){
@@ -311,7 +330,7 @@ void CShiftPWM::Start(int ledFrequency, unsigned char maxBrightness){
 		else if(m_timer==3){
 			InitTimer3();
 		}
-		#else
+		#elif !defined(UseMegaAVR)
 			else if(m_timer==2){
 				InitTimer2();
 			}
@@ -324,6 +343,22 @@ void CShiftPWM::Start(int ledFrequency, unsigned char maxBrightness){
 }
 
 void CShiftPWM::InitTimer1(void){
+#if defined(UseMegaAVR)
+	/* Configure timer1 in default periodic interrupt mode: clear the timer on compare match
+	* See the Atmega4809 Datasheet 21.3.3.1.1 for an explanation on periodic interrupt mode. */
+	TCB1.CCMP = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
+	TCB1.INTCTRL =  (1 << TCB_CAPT_bp);   // Enable interrupts
+	TCB1.INTCTRL |= (1 << TCB_CAPT_bp);   // Enable interrupts
+
+	/* The timer will generate an interrupt when the value we load in TCB1.CCMP matches the timer value.
+	* One period of the timer, from 0 to TCB1.CCMP will therefore be (TCB1.CCMP+1)/(timer clock frequency).
+	* We want the frequency of the timer to be (LED frequency)*(number of brightness levels)
+	* So the value we want for TCB1.CCMP is: timer clock frequency/(LED frequency * number of bightness levels)-1 */
+	m_prescaler = 1;
+	TCB1.CCMP = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
+	/* Finally enable the timer interrupt, see datasheet  15.11.8) */
+	TCB1.CTRLA |= TCB_CLKSEL_CLKDIV1_gc | TCB_ENABLE_bm; // Enable the timer and set the divider to 1 (none)
+#else
 	/* Configure timer1 in CTC mode: clear the timer on compare match
 	* See the Atmega328 Datasheet 15.9.2 for an explanation on CTC mode.
 	* See table 15-4 in the datasheet. */
@@ -350,6 +385,7 @@ void CShiftPWM::InitTimer1(void){
 	OCR1A = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
 	/* Finally enable the timer interrupt, see datasheet  15.11.8) */
 	bitSet(TIMSK1,OCIE1A);
+#endif
 }
 
 #if defined(OCR2A)
@@ -448,7 +484,11 @@ void CShiftPWM::PrintInterruptLoad(void){
 
 
 	if(m_timer==1){
-		if(TIMSK1 & (1<<OCIE1A)){
+		#if defined(UseMegaAVR)
+			if (TCB1.CTRLA & TCB_ENABLE_bm) {
+		#else
+			if(TIMSK1 & (1<<OCIE1A)){
+		#endif
 			// interrupt is enabled, continue
 		}
 		else{
@@ -468,7 +508,7 @@ void CShiftPWM::PrintInterruptLoad(void){
 				return;
 			}
 		}
-	#else
+	#elif !defined(UseMegaAVR)
 		else if(m_timer==2){
 			if(TIMSK2 & (1<<OCIE2A)){
 				// interrupt is enabled, continue
@@ -491,13 +531,17 @@ void CShiftPWM::PrintInterruptLoad(void){
 
 	//Disable Interrupt
 	if(m_timer==1){
-		bitClear(TIMSK1,OCIE1A);
+		#if defined(UseMegaAVR)
+			bitClear(TCB1.CTRLA, TCB_ENABLE_bm);
+		#else
+			bitClear(TIMSK1,OCIE1A);
+		#endif
 	}
 	#if defined(USBCON)
 		else if(m_timer==3){
 			bitClear(TIMSK3,OCIE3A);
 		}
-	#else
+	#elif !defined(UseMegaAVR)
 		else if(m_timer==2){
 			bitClear(TIMSK2,OCIE2A);
 		}
@@ -515,13 +559,17 @@ void CShiftPWM::PrintInterruptLoad(void){
 	// ready for calculations
 	load = (double)(time1-time2)/(double)(time1);
 	if(m_timer==1){
-		interrupt_frequency = (F_CPU/m_prescaler)/(OCR1A+1);
+		#if defined(UseMegaAVR)
+			interrupt_frequency = (F_CPU/m_prescaler)/(TCB1.CCMP+1);
+		#else
+			interrupt_frequency = (F_CPU/m_prescaler)/(OCR1A+1);
+		#endif
 	}
 	#if defined(USBCON)
 		else if(m_timer==3){
 			interrupt_frequency = (F_CPU/m_prescaler)/(OCR3A+1);
 		}
-	#else
+	#elif !defined(UseMegaAVR)
 		else if(m_timer==2){
 			interrupt_frequency = (F_CPU/m_prescaler)/(OCR2A+1);
 		}
@@ -552,6 +600,15 @@ void CShiftPWM::PrintInterruptLoad(void){
 
 			//Re-enable Interrupt
 			bitSet(TIMSK3,OCIE3A);
+		}
+	#elif defined(UseMegaAVR)
+		if(m_timer==1){
+			Serial.println(F("Timer1 in use for highest precision."));
+			Serial.print(F("TCB1.CCMP: ")); Serial.println(TCB1.CCMP, DEC);
+			Serial.print(F("Prescaler: ")); Serial.println(m_prescaler);
+
+			//Re-enable Interrupt
+			bitSet(TCB1.CTRLA,TCB_ENABLE_bm);
 		}
 	#else
 		if(m_timer==1){
