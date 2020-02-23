@@ -338,35 +338,6 @@ const uint8_t digital_pin_to_port_PGM_ct[] = {
   PB, // 25 PB4/USART3_Tx
 };
 
-const uint8_t digital_pin_to_bit_mask[] = {
-  PIN5_bm,  // 0 PC5/USART1_Rx
-  PIN4_bm,  // 1 PC4/USART1_Tx
-  PIN0_bm,  // 2 PA0
-  PIN5_bm,  // 3 PF5
-  PIN6_bm,  // 4 PC6
-  PIN2_bm,  // 5 PB2
-  PIN4_bm,  // 6 PF4
-  PIN1_bm,  // 7 PA1
-  PIN3_bm,  // 8 PE3
-  PIN0_bm,  // 9 PB0
-  PIN1_bm,  // 10 PB1
-  PIN0_bm,  // 11 PE0
-  PIN1_bm,  // 12 PE1
-  PIN2_bm,  // 13 PE2
-  PIN3_bm,  // 14 PD3/AI3
-  PIN2_bm,  // 15 PD2/AI2
-  PIN1_bm,  // 16 PD1/AI1
-  PIN0_bm,  // 17 PD0/AI0
-  PIN2_bm,  // 18 PF2/AI12
-  PIN3_bm,  // 19 PF3/AI13
-  PIN4_bm,  // 20 PD4/AI4
-  PIN5_bm,  // 21 PD5/AI5
-  PIN2_bm,  // 22 PA2/TWI_SDA
-  PIN3_bm,  // 23 PA3/TWI_SCL
-  PIN5_bm,  // 24 PB5/USART3_Rx
-  PIN4_bm,  // 25 PB4/USART3_Tx
-};
-
 #else
 
 // these arrays map port names (e.g. port B) to the
