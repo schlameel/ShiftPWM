@@ -98,6 +98,10 @@ static inline void pwm_output_one_pin(volatile uint8_t * const clockPort, volati
 }
 
 static inline void ShiftPWM_handleInterrupt(void){
+	#if defined(UseMegaAVR)
+	digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
+	TCB1.INTFLAGS = TCB_CAPT_bm;                      // Clear interrupt flag
+	#endif
 	sei(); //enable interrupt nesting to prevent disturbing other interrupt functions (servo's for example).
 
 	// Look up which bit of which output register corresponds to the pin.

@@ -16,7 +16,7 @@
 // Clock pin is SCK (Uno and earlier: 13, Leonardo: ICSP 3, Mega: 52, Teensy 2.0: 1, Teensy 2.0++: 21)
 
 // You can choose the latch pin yourself.
-const int ShiftPWM_latchPin=8;
+const int ShiftPWM_latchPin=9;
 
 // ** uncomment this part to NOT use the SPI port and change the pin numbers. This is 2.5x slower **
 // #define SHIFTPWM_NOSPI
@@ -25,7 +25,7 @@ const int ShiftPWM_latchPin=8;
 
 
 // If your LED's turn on if the pin is low, set this to true, otherwise set it to false.
-const bool ShiftPWM_invertOutputs = false; 
+const bool ShiftPWM_invertOutputs = true; 
 
 // You can enable the option below to shift the PWM phase of each shift register by 8 compared to the previous.
 // This will slightly increase the interrupt load, but will prevent all PWM signals from becoming high at the same time.
@@ -39,13 +39,16 @@ const bool ShiftPWM_balanceLoad = false;
 // Choose them wisely and use the PrintInterruptLoad() function to verify your load.
 // There is a calculator on my website to estimate the load.
 
-unsigned char maxBrightness = 255;
-unsigned char pwmFrequency = 75;
-int numRegisters = 6;
+unsigned char maxBrightness = 32;
+unsigned char pwmFrequency = 60;
+int numRegisters = 24;
 int numRGBleds = numRegisters*8/3;
 
 void setup(){
   Serial.begin(9600);
+
+  pinMode(LED_BUILTIN, OUTPUT);
+
 
   // Sets the number of 8-bit registers that are used.
   ShiftPWM.SetAmountOfRegisters(numRegisters);

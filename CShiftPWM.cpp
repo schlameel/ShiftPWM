@@ -281,17 +281,31 @@ void CShiftPWM::Start(int ledFrequency, unsigned char maxBrightness){
 	if(!m_noSPI){ // initialize SPI when used
 
 		#if defined(UseMegaAVR)
+			// Select master mode
+			SPI0.CTRLA |= SPI_MASTER_bm;
 			// The least significant bit shoult be sent out by the SPI port first.
 			// equals SPI.setBitOrder(LSBFIRST);
-			SPI.setBitOrder(LSBFIRST);
+			SPI0.CTRLA |=  (SPI_DORD_bm);
 
 			// Here you can set the clock speed of the SPI port. Default is DIV4, which is 4MHz with a 16Mhz system clock.
 			// If you encounter problems due to long wires or capacitive loads, try lowering the SPI clock.
 			// equals SPI.setClockDivider(SPI_CLOCK_DIV4);
-			SPI.setClockDivider(SPI_CLOCK_DIV4);
+			SPI0.CTRLA = ((SPI0.CTRLA & 
+                  ((~SPI_PRESC_gm) | (~SPI_CLK2X_bm) ))  // mask out values
+                  | SPI_CLOCK_DIV4);					 // write value
+
+			// Disable slave select
+			SPI0.CTRLB |= SPI_SSD_bm;
 
 			// Set clock polarity and phase for shift registers (Mode 3)
-			SPI.setDataMode(SPI_MODE3);
+			SPI0.CTRLB |= SPI_MODE_3_gc;
+
+			// When the SS pin is set as OUTPUT, it can be used as
+			// a general purpose output port (it doesn't influence
+			// SPI operations).
+			pinMode(SS, OUTPUT);
+			digitalWrite(SS, HIGH);
+
 		#else
 			// The least significant bit shoult be sent out by the SPI port first.
 			// equals SPI.setBitOrder(LSBFIRST);
@@ -346,18 +360,17 @@ void CShiftPWM::InitTimer1(void){
 #if defined(UseMegaAVR)
 	/* Configure timer1 in default periodic interrupt mode: clear the timer on compare match
 	* See the Atmega4809 Datasheet 21.3.3.1.1 for an explanation on periodic interrupt mode. */
+	TCB1.CTRLB = TCB_CNTMODE_INT_gc;    // Periodic Interrupt
 	TCB1.CCMP = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
-	TCB1.INTCTRL =  (1 << TCB_CAPT_bp);   // Enable interrupts
-	TCB1.INTCTRL |= (1 << TCB_CAPT_bp);   // Enable interrupts
+	TCB1.INTCTRL = TCB_CAPT_bm; 		// Enable the interrupt
 
 	/* The timer will generate an interrupt when the value we load in TCB1.CCMP matches the timer value.
 	* One period of the timer, from 0 to TCB1.CCMP will therefore be (TCB1.CCMP+1)/(timer clock frequency).
 	* We want the frequency of the timer to be (LED frequency)*(number of brightness levels)
 	* So the value we want for TCB1.CCMP is: timer clock frequency/(LED frequency * number of bightness levels)-1 */
 	m_prescaler = 1;
-	TCB1.CCMP = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
 	/* Finally enable the timer interrupt, see datasheet  15.11.8) */
-	TCB1.CTRLA |= TCB_CLKSEL_CLKDIV1_gc | TCB_ENABLE_bm; // Enable the timer and set the divider to 1 (none)
+	TCB1.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
 #else
 	/* Configure timer1 in CTC mode: clear the timer on compare match
 	* See the Atmega328 Datasheet 15.9.2 for an explanation on CTC mode.
@@ -608,6 +621,7 @@ void CShiftPWM::PrintInterruptLoad(void){
 			Serial.print(F("Prescaler: ")); Serial.println(m_prescaler);
 
 			//Re-enable Interrupt
+			TCB1.INTFLAGS = TCB_CAPT_bm;
 			bitSet(TCB1.CTRLA,TCB_ENABLE_bm);
 		}
 	#else
