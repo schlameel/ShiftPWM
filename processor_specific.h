@@ -31,10 +31,6 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #    define SPDR SPI0.DATA
 #  endif
 
-#  ifndef SPSR
-#    define SPSR SPI0.CTRLA
-#  endif
-
 #  ifndef WaitForCompleteSend
 #    define WaitForCompleteSend (SPI0.INTFLAGS & SPI_RXCIF_bm) == 0
 #  endif

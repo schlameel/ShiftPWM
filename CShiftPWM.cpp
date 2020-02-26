@@ -281,18 +281,22 @@ void CShiftPWM::Start(int ledFrequency, unsigned char maxBrightness){
 	if(!m_noSPI){ // initialize SPI when used
 
 		#if defined(UseMegaAVR)
+			// Start SPI
+			SPI.begin();
+
 			// Select master mode
 			SPI0.CTRLA |= SPI_MASTER_bm;
-			// The least significant bit shoult be sent out by the SPI port first.
+			// The least significant bit should be sent out by the SPI port first.
 			// equals SPI.setBitOrder(LSBFIRST);
 			SPI0.CTRLA |=  (SPI_DORD_bm);
 
 			// Here you can set the clock speed of the SPI port. Default is DIV4, which is 4MHz with a 16Mhz system clock.
 			// If you encounter problems due to long wires or capacitive loads, try lowering the SPI clock.
 			// equals SPI.setClockDivider(SPI_CLOCK_DIV4);
-			SPI0.CTRLA = ((SPI0.CTRLA & 
-                  ((~SPI_PRESC_gm) | (~SPI_CLK2X_bm) ))  // mask out values
-                  | SPI_CLOCK_DIV4);					 // write value
+			//SPI0.CTRLA = ((SPI0.CTRLA &
+			//               ((~SPI_PRESC_gm) | (~SPI_CLK2X_bm) ))  // mask out values
+			//              | SPI_CLOCK_DIV4);           // write value
+			SPI.setClockDivider(SPI_CLOCK_DIV4);
 
 			// Disable slave select
 			SPI0.CTRLB |= SPI_SSD_bm;
@@ -305,7 +309,6 @@ void CShiftPWM::Start(int ledFrequency, unsigned char maxBrightness){
 			// SPI operations).
 			pinMode(SS, OUTPUT);
 			digitalWrite(SS, HIGH);
-
 		#else
 			// The least significant bit shoult be sent out by the SPI port first.
 			// equals SPI.setBitOrder(LSBFIRST);
@@ -370,6 +373,7 @@ void CShiftPWM::InitTimer1(void){
 	* So the value we want for TCB1.CCMP is: timer clock frequency/(LED frequency * number of bightness levels)-1 */
 	m_prescaler = 1;
 	/* Finally enable the timer interrupt, see datasheet  15.11.8) */
+	TCB1.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
 	TCB1.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
 #else
 	/* Configure timer1 in CTC mode: clear the timer on compare match
@@ -594,6 +598,8 @@ void CShiftPWM::PrintInterruptLoad(void){
 	Serial.print(F("Clock cycles per interrupt: "));   Serial.println(cycles_per_int);
 	Serial.print(F("Interrupt frequency: ")); Serial.print(interrupt_frequency);   Serial.println(F(" Hz"));
 	Serial.print(F("PWM frequency: ")); Serial.print(interrupt_frequency/(m_maxBrightness+1)); Serial.println(F(" Hz"));
+	Serial.print(F("LED frequency: ")); Serial.println(m_ledFrequency);
+	Serial.print(F("Max brightness: ")); Serial.println(m_maxBrightness);
 
 
 	#if defined(USBCON)

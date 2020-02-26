@@ -99,8 +99,7 @@ static inline void pwm_output_one_pin(volatile uint8_t * const clockPort, volati
 
 static inline void ShiftPWM_handleInterrupt(void){
 	#if defined(UseMegaAVR)
-	digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
-	TCB1.INTFLAGS = TCB_CAPT_bm;                      // Clear interrupt flag
+		TCB1.INTFLAGS = TCB_CAPT_bm;                      // Clear interrupt flag
 	#endif
 	sei(); //enable interrupt nesting to prevent disturbing other interrupt functions (servo's for example).
 
@@ -113,11 +112,13 @@ static inline void ShiftPWM_handleInterrupt(void){
 
 
 	#if defined(UseMegaAVR)
-	PORT_t * latchPort = digital_pin_to_port_PGM_ct[ShiftPWM_latchPin];
-	uint8_t latchBitMask = digital_pin_to_bit_mask[ShiftPWM_latchPin];
+		//PORT_t * latchPort = digital_pin_to_port_PGM_ct[ShiftPWM_latchPin];
+		//uint8_t latchBitMask = digital_pin_to_bit_mask[ShiftPWM_latchPin];
+		PORT_t *latchPort = digitalPinToPortStruct(ShiftPWM_latchPin);
+		uint8_t latchBitMask = digitalPinToBitMask(ShiftPWM_latchPin);
 	#else
-	volatile uint8_t * const latchPort = port_to_output_PGM_ct[digital_pin_to_port_PGM_ct[ShiftPWM_latchPin]];
-	const uint8_t latchBit =  digital_pin_to_bit_PGM_ct[ShiftPWM_latchPin];
+		volatile uint8_t * const latchPort = port_to_output_PGM_ct[digital_pin_to_port_PGM_ct[ShiftPWM_latchPin]];
+		const uint8_t latchBit =  digital_pin_to_bit_PGM_ct[ShiftPWM_latchPin];
 	#endif
 
 	#ifdef SHIFTPWM_NOSPI
@@ -134,9 +135,9 @@ static inline void ShiftPWM_handleInterrupt(void){
 
 	// Write shift register latch clock low 
 	#if defined(UseMegaAVR)
-	latchPort->OUTCLR = latchBitMask;
+		latchPort->OUTCLR = latchBitMask;
 	#else
-	bitClear(*latchPort, latchBit);
+		bitClear(*latchPort, latchBit);
 	#endif
 	unsigned char counter = ShiftPWM.m_counter;
 	
@@ -210,7 +211,7 @@ static inline void ShiftPWM_handleInterrupt(void){
 	}
 #elif defined(UseMegaAVR)
 	//Install the Interrupt Service Routine (ISR) for Timer1 compare and match A.
-	ISR(TCB1_INT_VECT) {
+	ISR(TCB1_INT_vect) {
 		ShiftPWM_handleInterrupt();
 	}
 #else
