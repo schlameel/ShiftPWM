@@ -363,18 +363,18 @@ void CShiftPWM::InitTimer1(void){
 #if defined(UseMegaAVR)
 	/* Configure timer1 in default periodic interrupt mode: clear the timer on compare match
 	* See the Atmega4809 Datasheet 21.3.3.1.1 for an explanation on periodic interrupt mode. */
-	TCB2.CTRLB = TCB_CNTMODE_INT_gc;    // Periodic Interrupt
-	TCB2.CCMP = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
-	TCB2.INTCTRL = TCB_CAPT_bm; 		// Enable the interrupt
+	TCB3.CTRLB = TCB_CNTMODE_INT_gc;    // Periodic Interrupt
+	TCB3.CCMP = round((float) F_CPU/((float) m_ledFrequency*((float) m_maxBrightness+1)))-1;
+	TCB3.INTCTRL = TCB_CAPT_bm; 		// Enable the interrupt
 
-	/* The timer will generate an interrupt when the value we load in TCB2.CCMP matches the timer value.
-	* One period of the timer, from 0 to TCB2.CCMP will therefore be (TCB2.CCMP+1)/(timer clock frequency).
+	/* The timer will generate an interrupt when the value we load in TCB3.CCMP matches the timer value.
+	* One period of the timer, from 0 to TCB3.CCMP will therefore be (TCB3.CCMP+1)/(timer clock frequency).
 	* We want the frequency of the timer to be (LED frequency)*(number of brightness levels)
-	* So the value we want for TCB2.CCMP is: timer clock frequency/(LED frequency * number of bightness levels)-1 */
+	* So the value we want for TCB3.CCMP is: timer clock frequency/(LED frequency * number of bightness levels)-1 */
 	m_prescaler = 1;
 	/* Finally enable the timer interrupt, see datasheet  15.11.8) */
-	TCB2.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
-	TCB2.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
+	TCB3.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
+	TCB3.CTRLA = TCB_CLKSEL_CLKDIV1_gc  | TCB_ENABLE_bm;  // div1 prescale, enable timer
 #else
 	/* Configure timer1 in CTC mode: clear the timer on compare match
 	* See the Atmega328 Datasheet 15.9.2 for an explanation on CTC mode.
@@ -502,7 +502,7 @@ void CShiftPWM::PrintInterruptLoad(void){
 
 	if(m_timer==1){
 		#if defined(UseMegaAVR)
-			if (TCB2.CTRLA & TCB_ENABLE_bm) {
+			if (TCB3.CTRLA & TCB_ENABLE_bm) {
 		#else
 			if(TIMSK1 & (1<<OCIE1A)){
 		#endif
@@ -549,7 +549,7 @@ void CShiftPWM::PrintInterruptLoad(void){
 	//Disable Interrupt
 	if(m_timer==1){
 		#if defined(UseMegaAVR)
-			bitClear(TCB2.CTRLA, TCB_ENABLE_bm);
+			bitClear(TCB3.CTRLA, TCB_ENABLE_bm);
 		#else
 			bitClear(TIMSK1,OCIE1A);
 		#endif
@@ -577,7 +577,7 @@ void CShiftPWM::PrintInterruptLoad(void){
 	load = (double)(time1-time2)/(double)(time1);
 	if(m_timer==1){
 		#if defined(UseMegaAVR)
-			interrupt_frequency = (F_CPU/m_prescaler)/(TCB2.CCMP+1);
+			interrupt_frequency = (F_CPU/m_prescaler)/(TCB3.CCMP+1);
 		#else
 			interrupt_frequency = (F_CPU/m_prescaler)/(OCR1A+1);
 		#endif
@@ -623,12 +623,12 @@ void CShiftPWM::PrintInterruptLoad(void){
 	#elif defined(UseMegaAVR)
 		if(m_timer==1){
 			Serial.println(F("Timer1 in use for highest precision."));
-			Serial.print(F("TCB2.CCMP: ")); Serial.println(TCB2.CCMP, DEC);
+			Serial.print(F("TCB3.CCMP: ")); Serial.println(TCB3.CCMP, DEC);
 			Serial.print(F("Prescaler: ")); Serial.println(m_prescaler);
 
 			//Re-enable Interrupt
-			TCB2.INTFLAGS = TCB_CAPT_bm;
-			bitSet(TCB2.CTRLA,TCB_ENABLE_bm);
+			TCB3.INTFLAGS = TCB_CAPT_bm;
+			bitSet(TCB3.CTRLA,TCB_ENABLE_bm);
 		}
 	#else
 		if(m_timer==1){
